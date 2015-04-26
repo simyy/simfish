@@ -89,6 +89,6 @@ def file(request):
 
 set template and static path, or defualt is /yourproject/.
 ```
-TEMPLATE = /yourproject/tempates
-STATIC = /yourproject/static
+TEMPLATE = '/yourproject/tempates'
+STATIC = '/yourproject/static'
 ```
