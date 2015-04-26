@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # encoding:utf-8
 
+__author__ = 'yuxianda'
+__email__ = 'xianda_yu@outlook.com'
+__version__ = '0.1'
+
 from wsgiref.simple_server import make_server
 import Cookie
 import threading
