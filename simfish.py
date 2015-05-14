@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 # encoding:utf-8
 
-__author__ = 'yuxianda'
-__email__ = 'xianda_yu@outlook.com'
-__version__ = '0.1'
-
 from wsgiref.simple_server import make_server
 import Cookie
 import threading
@@ -18,7 +14,6 @@ try:
     from urlparse import parse_qs
 except ImportError:
     from cgi import parse_qs
-
 
 TEMPLATE = os.getcwd()
 STATIC = os.getcwd()
@@ -73,14 +68,18 @@ class HeaderDict(dict):
     ''' A dictionary with case insensitive (titled) keys.
     
     You may add a list of strings to send multible headers with the same name.'''
+
     def __setitem__(self, key, value):
-        return dict.__setitem__(self,key.title(), value)
+        return dict.__setitem__(self, key.title(), value)
+
     def __getitem__(self, key):
-        return dict.__getitem__(self,key.title())
+        return dict.__getitem__(self, key.title())
+
     def __delitem__(self, key):
-        return dict.__delitem__(self,key.title())
+        return dict.__delitem__(self, key.title())
+
     def __contains__(self, key):
-        return dict.__contains__(self,key.title())
+        return dict.__contains__(self, key.title())
 
     def items(self):
         """ Returns a list of (key, value) tuples """
@@ -89,7 +88,7 @@ class HeaderDict(dict):
                 values = [values]
             for value in values:
                 yield (key, str(value))
-                
+
     def add(self, key, value):
         """ Adds a new header without deleting old ones """
         if isinstance(value, list):
@@ -101,62 +100,69 @@ class HeaderDict(dict):
             else:
                 self[key] = [self[key], value]
         else:
-          self[key] = [value]
+            self[key] = [value]
 
 
 # Exceptions
 class SimFishException(Exception):
-	"""A base class for exception"""
-	pass
+    """A base class for exception"""
+    pass
+
 
 class HTTPError(SimFishException):
-	"""Jump out to error handler"""
-	def __init__(self, status, text):
-		self.output = text
-		self.http_status = status
+    """Jump out to error handler"""
 
-	def __str__(self):
-		return self.output
+    def __init__(self, status, text):
+        self.output = text
+        self.http_status = status
+
+        def __str__(self):
+            return self.output
+
 
 class BreakSimFish(SimFishException):
-	"""Jump out of execution"""
-	def __init__(self, text):
-		self.output = text
+    """Jump out of execution"""
+
+    def __init__(self, text):
+        self.output = text
 
 
 # Route
 class Routes:
-	"""FrameWork Routes"""
-	ROUTES = {}
+    """FrameWork Routes"""
+    ROUTES = {}
 
-	@classmethod
-	def add(cls, url, handler):
-		"""add route and handler to ROUTES"""
-		if not url.startswith('/'):
-			url = '/' + url
-		if re.match(r'^/(\w+/)*\w*$', url):
-			cls.ROUTES[url] = handler
+    @classmethod
+    def add(cls, url, handler):
+        """add route and handler to ROUTES"""
+        if not url.startswith('/'):
+            url = '/' + url
+        if re.match(r'/(\w+/)*\w*(\.\w+){0,1}$', url).group() == url:
+            cls.ROUTES[url] = handler
+        else:
+            raise BreakSimFish("%s is not valid" % url)
 
-	@classmethod
-	def match(cls, url):
-		"""match url in ROUTES"""
-		if not url:
-			return None
-		url = url.strip()
-		route = cls.ROUTES.get(url,None)
-		return route
+    @classmethod
+    def match(cls, url):
+        """match url in ROUTES"""
+        if not url:
+            return None
+        url = url.strip()
+        return cls.ROUTES.get(url, None)
 
-	@classmethod
-	def load_urls(cls, urls):
-		for item in urls:
-			cls.add(item[0], item[1])
+    @classmethod
+    def load_urls(cls, urls):
+        for item in urls:
+            cls.add(item[0], item[1])
 
 
 def route(url, **kargs):
     """Decorator for request handler. Same as Routes.route(url, handler)."""
+
     def wrapper(handler):
-    	Routes.add(url, handler, **kargs)
+        Routes.add(url, handler, **kargs)
         return handler
+
     return wrapper
 
 
@@ -169,20 +175,25 @@ class BaseTemplate(object):
             template = fp.read()
             fp.close()
         self.parse(template)
-    def parse(self, template): raise NotImplementedError
-    def render(self, **args): raise NotImplementedError
+
+    def parse(self, template):
+        raise NotImplementedError
+
+    def render(self, **args):
+        raise NotImplementedError
+
     @classmethod
     def find(cls, name):
         files = [path % name for path in TEMPLATE if os.path.isfile(path % name)]
         if files:
-            return cls(filename = files[0])
+            return cls(filename=files[0])
         else:
             raise Exception('Template not found: %s' % repr(name))
 
 
 class SimpleTemplate(BaseTemplate):
-
-    re_python = re.compile(r'^\s*%\s*(?:(if|elif|else|try|except|finally|for|while|with|def|class)|(include.*)|(end.*)|(.*))')
+    re_python = re.compile(
+        r'^\s*%\s*(?:(if|elif|else|try|except|finally|for|while|with|def|class)|(include.*)|(end.*)|(.*))')
     re_inline = re.compile(r'\{\{(.*?)\}\}')
     dedent_keywords = ('elif', 'else', 'except', 'finally')
 
@@ -191,13 +202,16 @@ class SimpleTemplate(BaseTemplate):
         strbuffer = []
         code = []
         self.subtemplates = {}
+
         class PyStmt(str):
             def __repr__(self): return 'str(' + self + ')'
+
         def flush():
             if len(strbuffer):
                 code.append(" " * indent + "stdout.append(%s)" % repr(''.join(strbuffer)))
-                code.append("\n" * len(strbuffer)) # to preserve line numbers 
+                code.append("\n" * len(strbuffer))  # to preserve line numbers
                 del strbuffer[:]
+
         for line in template.splitlines(True):
             m = self.re_python.match(line)
             if m:
@@ -220,7 +234,7 @@ class SimpleTemplate(BaseTemplate):
                 elif statement:
                     code.append(" " * indent + line[m.start(4):])
             else:
-                splits = self.re_inline.split(line) # text, (expr, text)*
+                splits = self.re_inline.split(line)  # text, (expr, text)*
                 if len(splits) == 1:
                     strbuffer.append(line)
                 else:
@@ -236,12 +250,13 @@ class SimpleTemplate(BaseTemplate):
         args['stdout'] = []
         args['_subtemplates'] = self.subtemplates
         eval(self.co, args, globals())
-        return ''.join(args['stdout']),  "text/html"
+        return ''.join(args['stdout']), "text/html"
 
 
 # Request
 class Request(threading.local):
     """Represents a single request using thread-local namespace"""
+
     def bind(self, environ):
         """Bind the enviroment"""
         self._environ = environ
@@ -295,7 +310,7 @@ class Request(threading.local):
     def COOKIES(self):
         """Returns a dict with COOKIES."""
         if self._COOKIES is None:
-            raw_dict = Cookie.SimpleCookie(self._environ.get('HTTP_COOKIE',''))
+            raw_dict = Cookie.SimpleCookie(self._environ.get('HTTP_COOKIE', ''))
             self._COOKIES = {}
             for cookie in raw_dict.values():
                 self._COOKIES[cookie.key] = cookie.value
@@ -305,6 +320,7 @@ class Request(threading.local):
 # Response
 class Response(threading.local):
     """Represents a single response using thread-local namespace."""
+
     def bind(self):
         """Clears old data and creates a brand new Response object"""
         self._COOKIES = None
@@ -346,7 +362,7 @@ def send_file(filename, root, mimetype=None, guessmime=True):
     root = os.path.abspath(root) + '/'
     filename = os.path.normpath(filename).strip('/')
     filename = os.path.join(root, filename)
-    
+
     if not filename.startswith(root):
         response.status = 401
         return "Access denied."
@@ -367,7 +383,7 @@ def send_file(filename, root, mimetype=None, guessmime=True):
     stats = os.stat(filename)
     # TODO: HTTP_IF_MODIFIED_SINCE -> 304 (Thu, 02 Jul 2009 23:16:31 CEST)
     if mimetype == 'application/octet-stream' and "Content-Disposition" not in response.header:
-        response.header["Content-Disposition"] = "attachment;filename=%s"%name
+        response.header["Content-Disposition"] = "attachment;filename=%s" % name
     elif 'Last-Modified' not in response.header:
         ts = time.gmtime(stats.st_mtime)
         ts = time.strftime("%a, %d %b %Y %H:%M:%S +0000", ts)
@@ -393,14 +409,14 @@ class Simfish:
         else:
             try:
                 result = handler(request)
-            except SimFishException,output:
-            	result = output
+            except SimFishException, output:
+                result = output
         if isinstance(result, tuple) and len(result) == 2:
-        	response.header['Content-type'] = result[1]
-        	result = result[0]
+            response.header['Content-type'] = result[1]
+            result = result[0]
         status = '%d %s' % (response.status, HTTP_CODES[response.status])
         self.start(status, list(response.header.items()))
-        
+
         if hasattr(result, 'read'):
             if 'wsgi.file_wrapper' in self.environ:
                 return self.environ['wsgi.file_wrapper'](result)
@@ -415,6 +431,7 @@ class Simfish:
 
 class application:
     """SimFish is a small FrameWork"""
+
     def __init__(self, urls=None, port=8086):
         if urls:
             Routes.load_urls(urls)
@@ -425,3 +442,4 @@ class application:
         sa = httpd.socket.getsockname()
         print 'http://{0}:{1}/'.format(*sa)
         httpd.serve_forever()
+
