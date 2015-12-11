@@ -9,6 +9,7 @@ import cgi
 import mimetypes
 import time
 import os
+import functools
 
 try:
     from urlparse import parse_qs
@@ -65,9 +66,10 @@ HTTP_CODES = {
 
 # Header
 class HeaderDict(dict):
-    ''' A dictionary with case insensitive (titled) keys.
-    
-    You may add a list of strings to send multible headers with the same name.'''
+    """ 
+    A dictionary with case insensitive (titled) keys.
+    You may add a list of strings to send multible headers with the same name.
+    """
 
     def __setitem__(self, key, value):
         return dict.__setitem__(self, key.title(), value)
@@ -91,6 +93,7 @@ class HeaderDict(dict):
 
     def add(self, key, value):
         """ Adds a new header without deleting old ones """
+
         if isinstance(value, list):
             for v in value:
                 self.add(key, v)
@@ -104,32 +107,40 @@ class HeaderDict(dict):
 
 
 # Exceptions
-class SimFishException(Exception):
-    """A base class for exception"""
+class SimfishException(Exception):
+    """
+    A base class for exception
+    """
     pass
 
 
-class HTTPError(SimFishException):
-    """Jump out to error handler"""
+class HTTPError(SimfishException):
+    """
+    Jump out to error handler
+    """
 
     def __init__(self, status, text):
-        self.output = text
+        self.text = text
         self.http_status = status
 
-        def __str__(self):
-            return self.output
+    def __str__(self):
+        return self.text
 
 
-class BreakSimFish(SimFishException):
-    """Jump out of execution"""
+class BreakSimfish(SimfishException):
+    """
+    Jump out of execution
+    """
 
     def __init__(self, text):
-        self.output = text
+        self.text = text
 
 
 # Route
 class Routes:
-    """FrameWork Routes"""
+    """
+    FrameWork Routes
+    """
     ROUTES = {}
 
     @classmethod
@@ -140,7 +151,7 @@ class Routes:
         if re.match(r'/(\w+/)*\w*(\.\w+){0,1}$', url).group() == url:
             cls.ROUTES[url] = handler
         else:
-            raise BreakSimFish("%s is not valid" % url)
+            raise BreakSimfish("%s is not valid" % url)
 
     @classmethod
     def match(cls, url):
@@ -158,11 +169,9 @@ class Routes:
 
 def route(url, **kargs):
     """Decorator for request handler. Same as Routes.route(url, handler)."""
-
     def wrapper(handler):
         Routes.add(url, handler, **kargs)
         return handler
-
     return wrapper
 
 
@@ -184,7 +193,7 @@ class BaseTemplate(object):
 
     @classmethod
     def find(cls, name):
-        files = [path % name for path in TEMPLATE if os.path.isfile(path % name)]
+        files = ['/'.join([path, name]) for path in TEMPLATE if os.path.isfile('/'.join([path, name]))]
         if files:
             return cls(filename=files[0])
         else:
@@ -255,10 +264,12 @@ class SimpleTemplate(BaseTemplate):
 
 # Request
 class Request(threading.local):
-    """Represents a single request using thread-local namespace"""
+    """
+    Represents a single request using thread-local namespace
+    """
 
     def bind(self, environ):
-        """Bind the enviroment"""
+        """ Bind the enviroment """
         self._environ = environ
         self._GET = None
         self._POST = None
@@ -269,17 +280,17 @@ class Request(threading.local):
 
     @property
     def method(self):
-        """Returns the request method (GET,POST,PUT,DELETE,...)"""
+        """ Returns the request method (GET,POST,PUT,DELETE,...) """
         return self._environ.get('REQUEST_METHOD', 'GET').upper()
 
     @property
     def query_string(self):
-        ''' Content of QUERY_STRING '''
+        """ Content of QUERY_STRING """
         return self._environ.get('QUERY_STRING', '')
 
     @property
     def GET(self):
-        """Returns a dict with GET parameters."""
+        """ Returns a dict with GET parameters. """
         if self._GET is None:
             raw_dict = parse_qs(self.query_string, keep_blank_values=1)
             self._GET = {}
@@ -292,23 +303,23 @@ class Request(threading.local):
 
     @property
     def POST(self):
-        """Returns a dict with parsed POST data."""
+        """ Returns a dict with parsed POST data. """
         if self._POST is None:
             raw_data = cgi.FieldStorage(fp=self._environ['wsgi.input'], environ=self._environ)
             self._POST = {}
             if raw_data:
-                for key in raw_data:
-                    if isinstance(raw_data[key], list):
-                        self._POST[key] = [v.value for v in raw_data[key]]
-                    elif raw_data[key].filename:
-                        self._POST[key] = raw_data[key]
+                for key, value in raw_data.items():
+                    if isinstance(value, list):
+                        self._POST[key] = [v.value for v in value]
+                    elif value.filename:
+                        self._POST[key] = value
                     else:
-                        self._POST[key] = raw_data[key].value
+                        self._POST[key] = value.value
         return self._POST
 
     @property
     def COOKIES(self):
-        """Returns a dict with COOKIES."""
+        """ Returns a dict with COOKIES. """
         if self._COOKIES is None:
             raw_dict = Cookie.SimpleCookie(self._environ.get('HTTP_COOKIE', ''))
             self._COOKIES = {}
@@ -319,10 +330,12 @@ class Request(threading.local):
 
 # Response
 class Response(threading.local):
-    """Represents a single response using thread-local namespace."""
+    """
+    Represents a single response using thread-local namespace.
+    """
 
     def bind(self):
-        """Clears old data and creates a brand new Response object"""
+        """ Clears old data and creates a brand new Response object """
         self._COOKIES = None
         self.status = 200
         self.header = HeaderDict()
@@ -336,7 +349,10 @@ class Response(threading.local):
         return self._COOKIES
 
     def set_cookie(self, key, value, **kargs):
-        """Sets a Cookie. Optional settings: expires, path, comment, domain, max-age, secure, version, httponly"""
+        """ 
+        Sets a Cookie. Optional settings: expires, path, comment, 
+        domain, max-age, secure, version, httponly 
+        """
         self.COOKIES[key] = value
         for k in kargs:
             self.COOKIES[key][k] = kargs[k]
@@ -352,12 +368,12 @@ def redirect(url, code=307):
     """ Aborts execution and causes a 307 redirect """
     response.status = code
     response.header['Location'] = url
-    raise SimFishException("")
+    raise SimfishException("")
 
 
 # Send static or other files
 def send_file(filename, root, mimetype=None, guessmime=True):
-    """Sends files"""
+    """ Sends files """
     name = filename
     root = os.path.abspath(root) + '/'
     filename = os.path.normpath(filename).strip('/')
@@ -382,7 +398,8 @@ def send_file(filename, root, mimetype=None, guessmime=True):
 
     stats = os.stat(filename)
     # TODO: HTTP_IF_MODIFIED_SINCE -> 304 (Thu, 02 Jul 2009 23:16:31 CEST)
-    if mimetype == 'application/octet-stream' and "Content-Disposition" not in response.header:
+    if mimetype == 'application/octet-stream' \
+        and "Content-Disposition" not in response.header:
         response.header["Content-Disposition"] = "attachment;filename=%s" % name
     elif 'Last-Modified' not in response.header:
         ts = time.gmtime(stats.st_mtime)
@@ -409,7 +426,7 @@ class Simfish:
         else:
             try:
                 result = handler(request)
-            except SimFishException, output:
+            except SimfishException, output:
                 result = output
         if isinstance(result, tuple) and len(result) == 2:
             response.header['Content-type'] = result[1]
@@ -422,7 +439,6 @@ class Simfish:
                 return self.environ['wsgi.file_wrapper'](result)
             else:
                 return iter(lambda: result.read(8192), '')
-            return iter(lambda: result.read(8192), '')
         elif isinstance(result, basestring):
             return iter([result])
         else:
@@ -430,7 +446,7 @@ class Simfish:
 
 
 class application:
-    """SimFish is a small FrameWork"""
+    """Simfish is a small FrameWork"""
 
     def __init__(self, urls=None, port=8086):
         if urls:
