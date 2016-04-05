@@ -11,10 +11,12 @@ import time
 import os
 import functools
 
+
 try:
     from urlparse import parse_qs
 except ImportError:
     from cgi import parse_qs
+
 
 TEMPLATE = os.getcwd()
 STATIC = os.getcwd()
