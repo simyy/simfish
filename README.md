@@ -1,6 +1,6 @@
 # simfish
 
-Simfish is a fast, simple web framework for Python.
+`simfish` is a fast, simple web framework for Python.
 
 ## How to use
 ```
